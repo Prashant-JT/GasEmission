@@ -1,7 +1,8 @@
 clc; clear;
 
-dataset = importdata("dataset/gt_2015.csv");
-features = dataset.data;
+dataset = readtable("dataset/gt_2015.csv");
+headers = dataset.Properties.VariableNames;
+features = dataset.Variables;
 
 meanFeatures = mean(features, 1);
 
@@ -24,11 +25,8 @@ figure(2)
 mult = features * V;
 scatter(mult(:, 1), mult(:, 3));
 
-
 %{
 scatter(V);
-
-
 
 m = 5000; n = 2;
 A = randn(m,n);
