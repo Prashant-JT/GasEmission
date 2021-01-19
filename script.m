@@ -2,7 +2,7 @@ clc; clear;
 
 dataset = readtable("dataset/gt_2015.csv");
 headers = dataset.Properties.VariableNames;
-features = dataset.Variables;
+features = normalize(dataset.Variables);
 
 meanFeatures = mean(features, 1);
 
@@ -16,27 +16,30 @@ Z = (XC'*XC)/size(features, 1);
 [V, D] = eig(Z);
 diagonal = diag(D)';
 
-%figure(1)
-%scatter(features(:, 2), features(:, 3));
-figure(1)
-scatter(XC(:, 1), XC(:, 3));
+% scatter((1:11), diagonal);
 
-figure(2)
-mult = features * V;
-scatter(mult(:, 1), mult(:, 3));
+[COEFF, SCORE, LATENT, TSQUARED, EXPLAINED] = pca(features);
+
+figure(1);
+scatter3(SCORE(:,1),SCORE(:,2),SCORE(:,3));
+
+
+Y = SCORE*COEFF;
+figure(2);
+scatter3(Y(:,1),Y(:,2),Y(:,3));
 
 %{
-scatter(V);
+figure('Name','EigenVectors','NumberTitle','off');
+bar(COEFF);
 
-m = 5000; n = 2;
-A = randn(m,n);
-% deformación por un factor de 3
-A(:,2) = 3*A(:,2);
-% matriz de rotación
-phi = 45;
-cose = cosd(phi); sen = sind(phi);
-R = [cose -sen; sen cose];
-% rotación y traslacion al punto (10,10)
-B = A*R + 10;
-scatter(B(:, 1), B(:, 2));
+plotpca={'f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11'};
+for p=1:11
+    figure('Name',plotpca{p},'NumberTitle','off');
+
+    x = 1:size(SCORE, 1);
+    scatter(x, SCORE(:, p), 'r')
+    xlabel('Timestamp in order') 
+    ylabel("Feature Values("+ plotpca{p}+")")    
+end
 %}
+
