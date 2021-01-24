@@ -141,6 +141,8 @@
   <ItemGroup>
     <ClCompile Include="CSVReader.cpp" />
     <ClCompile Include="Final.cpp" />
+    <ClCompile Include="PCA.cpp" />
+    <ClCompile Include="Utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
