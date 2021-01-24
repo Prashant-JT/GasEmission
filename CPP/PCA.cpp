@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "Utils.cpp"
-
+#include <omp.h>
 #include <mkl.h>
 
 using namespace std;
@@ -14,19 +14,28 @@ public:
 
 	void centerData(int m, int n) {
 		double* means = new double[n];
-
 		double sum;
-		for (int j = 0; j < n; j++) {
-			sum = 0;
-			for (int i = 0; i < m; i++) {
-				sum += data[i * n + j];
+
+		#pragma omp parallel num_threads(5)
+		{
+			//int id = omp_get_thread_num();
+			//int num = omp_get_num_threads();
+
+			#define CHUNK 2
+			#pragma omp for schedule(dynamic, CHUNK)
+			for (int j = 0; j < n; j++) {
+				sum = 0;
+				for (int i = 0; i < m; i++) {
+					sum += data[i * n + j];
+				}
+
+				means[j] = sum / m;
+
+				for (int i = 0; i < m; i++) {
+					data[i * n + j] -= means[j];
+				}
 			}
 
-			means[j] = sum / m;
-
-			for (int i = 0; i < m; i++) {
-				data[i * n + j] -= means[j];
-			}
 		}
 	}
 
@@ -53,7 +62,17 @@ public:
 
 		cblas_dgemm(layout, transA, transB, m, n, k, alpha, data_Trans, lda, data, ldb, beta, Z, ldc);
 
-		for (int i = 0; i < n_ * n_; i++) Z[i] /= m_; // Matriz de covarianza global.
+		#pragma omp parallel num_threads(5)
+		{
+			//int id = omp_get_thread_num();
+			//int num = omp_get_num_threads();
+
+			#define CHUNK 2
+			#pragma omp for schedule(dynamic, CHUNK)
+			for (int i = 0; i < n_ * n_; i++) {
+				Z[i] /= m_; // Matriz de covarianza global
+			}
+		}
 	}
 	
 	void autos(char jobz, char uplo, int m, int n) { // m y n son iguales, matriz de covarianza (cuadrada).
@@ -81,6 +100,7 @@ public:
 			}
 			cont++;			
 		}
+
 	}
 
 	double * getPCA(int m_, int n_) {
@@ -94,7 +114,7 @@ public:
 		m = m_; // Número de filas de C, y filas de A.	
 		n = n_; // Número de columnas de C, y columnas de B.
 		k = n_; // Número de columnas de A, y filas de B.
-		alpha = 1; // Cálculo de la matriz de covarianza, división entre número de filas.
+		alpha = 1; 
 		beta = 0;
 		lda = n;
 		ldb = n;

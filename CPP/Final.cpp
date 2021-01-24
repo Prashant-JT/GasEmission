@@ -2,30 +2,32 @@
 #include "PCA.cpp"
 #include <cstdio>
 #include <cstdlib>
+#include<time.h>
 
 #define path "Datos\\gt_2015.csv"
 
-/*
-	JOBZ is CHARACTER*1
-		  = 'N':  Compute eigenvalues only;
-		  = 'V':  Compute eigenvalues and eigenvectors.
-	UPLO is CHARACTER*1
-		  = 'U':  Upper triangle of A is stored;
-		  = 'L':  Lower triangle of A is stored.
-	Se pide ambos, por tanto se pasa jobz='V', uplo=L o U (traspuestas).
-	Como jobz='V', la matriz contiene los autovectores.
-	Los autovalores se sitúan en el vector "w".
-	*/
-
-int main(int argc, char* argv[]){
+int main(int argc, char* argv[]) {
+	// Read CSV file
 	CSVReader reader(path, ',');	
 	double* dataRead = reader.readData();	
 	int m = reader.getM(); int n = reader.getN();
-	PCA pca(dataRead);
-	pca.centerData(m, n);	// Matriz de 7384x11
-	pca.computeCov(m, n); // Matriz de 7384x11
-	pca.autos('V', 'U', n, n); // Se calcula autovectores y autovalores, y se reordenan de mayor a menor
-	double * dataPCA = pca.getPCA(m, n); // Se obtiene los datos mediante PCA.
+	double* dataPCA;
+
+	clock_t start, stop;
+	start = clock();
+	for (int i = 0; i < 10000; i++) {
+		// Apply pca 
+		PCA pca(dataRead);
+		pca.centerData(m, n);	// Matrix 7384x11
+		pca.computeCov(m, n); // Matrix 7384x11
+		// Se calcula autovectores y autovalores, y se reordenan de mayor a menor
+		pca.autos('V', 'U', n, n);
+		dataPCA = pca.getPCA(m, n); // PCA data
+	}
+	stop = clock();
+	printf("Pos {11} = %f\n", dataPCA[11]);
+	printf("Tiempo: %4.8f segundos\n", (double)(stop - start) / CLOCKS_PER_SEC / 10000);
+
 		
 	return 0;
 }
