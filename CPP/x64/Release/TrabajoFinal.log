@@ -1,8 +1,0 @@
-﻿  Final.cpp
-C:\Users\remoto\source\repos\TrabajoFinal\CSVReader.cpp(61,1): warning C4267: '=': conversión de 'size_t' a 'int'; posible pérdida de datos
-  Generando código
-  0 of 266 functions ( 0.0%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
-  Generación de código finalizada
-  TrabajoFinal.vcxproj -> C:\Users\remoto\source\repos\TrabajoFinal\x64\Release\TrabajoFinal.exe
