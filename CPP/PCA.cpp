@@ -1,109 +1,46 @@
-#include <cstdio>
-#include <cstdlib>
 #include "Utils.cpp"
-#include <omp.h>
-#include <mkl.h>
 
-using namespace std;
-
-class PCA {
+class PCA_Autos {
 public:
-	PCA(double * matrixRead) {
-		data = matrixRead;
+	PCA_Autos(double* matrixRead, int m, int n) {
+		m_D = m; n_D = n; // Dimensiones de la matriz general [7384x11].
+		computeData(matrixRead);
 	}
 
-	void centerData(int m, int n) {
-		double* means = new double[n];
-		double sum;
-
-		#pragma omp parallel num_threads(5)
-		{
-			//int id = omp_get_thread_num();
-			//int num = omp_get_num_threads();
-
-			#define CHUNK 2
-			#pragma omp for schedule(dynamic, CHUNK)
-			for (int j = 0; j < n; j++) {
-				sum = 0;
-				for (int i = 0; i < m; i++) {
-					sum += data[i * n + j];
-				}
-
-				means[j] = sum / m;
-
-				for (int i = 0; i < m; i++) {
-					data[i * n + j] -= means[j];
-				}
-			}
-
-		}
-	}
-
-	void computeCov(int m_, int n_) {
-		MKL_INT m, k, n, alpha, beta, lda, ldb, ldc;
-		CBLAS_LAYOUT layout;
-		CBLAS_TRANSPOSE transA;
-		CBLAS_TRANSPOSE transB;
-		layout = CblasRowMajor;
-		transA = CblasTrans;
-		transB = CblasNoTrans;
-		m = n_; // Número de filas de C, y filas de A.	
-		n = n_; // Número de columnas de C, y columnas de B.
-		k = m_; // Número de columnas de A, y filas de B.
-		alpha = 1; // Cálculo de la matriz de covarianza, división entre número de filas.
-		beta = 0;
-		lda = m;
-		ldb = n;
-		ldc = m;
-		
-		//Operacion: 1 * XC_Trans[11x7384]' * XC[7384x11] - 0 * Z[11x11]
-		double* data_Trans = utils.clone(data, m_ * n_);
-		Z = new double[n_ * n_]{ 0.0 }; // Se inicializa la matriz de covarianza global.
-
-		cblas_dgemm(layout, transA, transB, m, n, k, alpha, data_Trans, lda, data, ldb, beta, Z, ldc);
-
-		#pragma omp parallel num_threads(5)
-		{
-			//int id = omp_get_thread_num();
-			//int num = omp_get_num_threads();
-
-			#define CHUNK 2
-			#pragma omp for schedule(dynamic, CHUNK)
-			for (int i = 0; i < n_ * n_; i++) {
-				Z[i] /= m_; // Matriz de covarianza global
-			}
-		}
-	}
-	
-	void autos(char jobz, char uplo, int m, int n) { // m y n son iguales, matriz de covarianza (cuadrada).
+	void autos(char jobz, char uplo) { // m y n son iguales porque son las dimensiones de la matriz de covarianza.
 		lapack_int res, layout, lda;
-		layout = LAPACK_ROW_MAJOR; lda = m;
+		layout = LAPACK_ROW_MAJOR; lda = m_C;
 
-		double * autosVectAux = utils.clone(Z, m * n);
-		autosVect = new double[m * n];
+		double* autosVectAux = utils.clone(Z, m_C * n_C);
+		autosVect = new double[m_C * n_C];
 
-		double * autosValAux = new double[m];	
-		autosVal = new double[m];
+		double* autosValAux = new double[m_C];
+		autosVal = new double[m_C];
 
-		res = LAPACKE_dsyev(layout, jobz, uplo, n, autosVectAux, lda, autosValAux);
+		res = LAPACKE_dsyev(layout, jobz, uplo, n_C, autosVectAux, lda, autosValAux);
 
-		int cont = 0;
-		for (int i = m - 1; i >= 0; i--) {
-			autosVal[cont] = autosValAux[i];
+		// Reordenar los autovalores de mayor a menor
+		#pragma omp parallel num_threads(8)
+		{
+			int cont = 0;
+			//#define CHUNK 2
+			#pragma omp for nowait
+			for (int i = m_C - 1; i >= 0; i--) {
+				autosVal[cont] = autosValAux[i];
+				cont++;
+			}
+		}
+
+		int cont = 1;
+		for (int j = n_C - 1; j >= 0; j--) {
+			for (int i = 1; i <= m_C; i++) {
+				autosVect[(n_C * (i - 1)) + (cont - 1)] = autosVectAux[(i * n_C) - cont];
+			}
 			cont++;
 		}
-
-		cont = 1;
-		for (int j = n-1; j >= 0; j--) {
-			for (int i = 1; i <= m; i++) {
-				autosVect[(n*(i-1))+(cont-1)] = autosVectAux[(i * n)-cont];
-			}
-			cont++;			
-		}
-
 	}
 
-	double * getPCA(int m_, int n_) {
+	double* getPCA() {
 		MKL_INT m, k, n, alpha, beta, lda, ldb, ldc;
 		CBLAS_LAYOUT layout;
 		CBLAS_TRANSPOSE transA;
@@ -111,24 +48,92 @@ public:
 		layout = CblasRowMajor;
 		transA = CblasNoTrans;
 		transB = CblasNoTrans;
-		m = m_; // Número de filas de C, y filas de A.	
-		n = n_; // Número de columnas de C, y columnas de B.
-		k = n_; // Número de columnas de A, y filas de B.
-		alpha = 1; 
+		m = m_D; // Número de filas de C, y filas de A.	
+		n = n_D; // Número de columnas de C, y columnas de B.
+		k = n_D; // Número de columnas de A, y filas de B.
+		alpha = 1; // Cálculo de la matriz de covarianza, división entre número de filas.
 		beta = 0;
 		lda = n;
 		ldb = n;
 		ldc = n;
 
 		//Operacion: 1 * Data[7384x11] * AutosVectores[11x11] - 0 * dataPCA[7384x11]
-		double * dataPCA = new double[m_ * n_]{ 0.0 }; 
+		double* dataPCA = new double[m_D * n_D]{ 0.0 };
 
 		cblas_dgemm(layout, transA, transB, m, n, k, alpha, data, lda, autosVect, ldb, beta, dataPCA, ldc);
-		
+
 		return dataPCA;
 	}
 
 private:
-	double* data, * Z, *autosVect, *autosVal;
+	MKL_INT m_D, n_D, m_C, n_C;
+	double* data, * Z, * autosVect, * autosVal;
 	Utils utils;
+
+	void computeData(double* dataRead) {
+		data = utils.centerData(dataRead, m_D, n_D);// Matriz centrada de 7384x11.
+		Z = utils.computeCov(data, m_D, n_D); // Matriz de covarianza de 11x11->Z
+		m_C = n_D; n_C = n_D; // Dimensiones de la matriz de covarianza [11x11].
+	}
+};
+
+
+class PCA_SVD {
+public:
+	PCA_SVD(double* matrixRead, int m, int n) {
+		m_D = m; n_D = n; // Dimensiones de la matriz general [7384x11].
+		computeData(matrixRead);
+	}
+
+	void svd(char jobu, char jobvt) {
+		lapack_int res, layout, lda, ldvt, ldu;
+		layout = LAPACK_ROW_MAJOR; lda = m_C;
+		ldvt = lda;	ldu = lda;
+
+		double* matrixOver = utils.clone(Z, m_C * n_C);
+		double* superb = new double[n_C];
+
+		s = new double[m_C];
+		u = new double[ldu*ldu];
+		double * vt = new double[ldvt*ldvt];
+
+		res = LAPACKE_dgesvd(layout, jobu, jobvt, m_C, n_C, matrixOver, lda, s, u, ldu, vt, ldvt, superb);
+	}
+
+	double* getPCA() { // La matriz "u" es igual a la matriz de autovectores, y el vector "s" a los autovalores.
+		MKL_INT m, k, n, alpha, beta, lda, ldb, ldc;
+		CBLAS_LAYOUT layout;
+		CBLAS_TRANSPOSE transA;
+		CBLAS_TRANSPOSE transB;
+		layout = CblasRowMajor;
+		transA = CblasNoTrans;
+		transB = CblasNoTrans;
+		m = m_D; // Número de filas de C, y filas de A.	
+		n = n_D; // Número de columnas de C, y columnas de B.
+		k = n_D; // Número de columnas de A, y filas de B.
+		alpha = 1; // Cálculo de la matriz de covarianza, división entre número de filas.
+		beta = 0;
+		lda = n;
+		ldb = n;
+		ldc = n;
+
+		//Operacion: 1 * Data[7384x11] * AutosVectores[11x11] - 0 * dataPCA[7384x11]
+		double* dataPCA = new double[m_D * n_D]{ 0.0 };
+
+		cblas_dgemm(layout, transA, transB, m, n, k, alpha, data, lda, u, ldb, beta, dataPCA, ldc);
+
+		return dataPCA;
+	}
+
+
+private:
+	MKL_INT m_D, n_D, m_C, n_C;
+	double* data, * Z, * s, * u;
+	Utils utils;
+
+	void computeData(double* dataRead) {
+		data = utils.centerData(dataRead, m_D, n_D);// Matriz centrada de 7384x11.
+		Z = utils.computeCov(data, m_D, n_D); // Matriz de covarianza de 11x11->Z
+		m_C = n_D; n_C = n_D; // Dimensiones de la matriz de covarianza [11x11].
+	}
 };
