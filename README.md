@@ -1,4 +1,6 @@
 # GasEmission
-Dataset: https://archive.ics.uci.edu/ml/datasets/Gas+Turbine+CO+and+NOx+Emission+Data+Set
+Applying PCA to a dataset in MATLAB & C++.
 
-http://mres.uni-potsdam.de/index.php/2017/09/14/principal-component-analysis-in-6-steps/
+Using BLAS and OpenMP to paralize in C++.
+
+Dataset: https://archive.ics.uci.edu/ml/datasets/Gas+Turbine+CO+and+NOx+Emission+Data+Set
